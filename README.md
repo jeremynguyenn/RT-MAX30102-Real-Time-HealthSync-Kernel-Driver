@@ -148,6 +148,50 @@ graph TD
         X[max30102.dts] -->|Overlay| D
     end
 ```
-<img width="1907" height="644" alt="image" src="https://github.com/user-attachments/assets/df2ca60e-4f9e-4cca-b93a-eba7af6affde" />
 
+```mermaid
+graph TD
+    A[MAX30102 Sensor] -->|I2C Data| B[I2C Interface\nmax30102_i2c.c]
+    A -->|Interrupt Trigger| C[IRQ Handler\nmax30102_interrupt.c]
     
+    subgraph Kernel Space
+        B -->|Register Read/Write| D[Core Driver\nmax30102_core.c]
+        C -->|Schedule Workqueue| E[Workqueue\nmax30102_work_handler]
+        E -->|Write to FIFO| F[Lock-Free FIFO\nmax30102_data.c]
+        F -->|SRCU Read| G[Data Processing\nmax30102_data.c]
+        G -->|Report HR/SpO2| H[Input Subsystem]
+        G -->|Report Temperature| I[HWMON Subsystem]
+        D -->|Expose Attributes| J[Sysfs\n/sys/bus/i2c/devices]
+        D -->|Expose Debug Info| K[Debugfs\n/sys/kernel/debug/max30102]
+        D -->|Provide IOCTL| L[IOCTL Interface\nmax30102_ioctl.c]
+        L -->|Protect with PI Mutex| M[FIFO Mutex\nwith Timeout]
+        F -->|Signal via Futex| N[Futex\natomic_t futex_val, temp_ready]
+        O[eBPF Monitoring\nmax30102_ebpf.c] -->|Trace Locks/I2C| P[Tracing\n/sys/kernel/debug/tracing]
+    end
+    
+    subgraph User Space
+        Q[User App\nmax30102_user.c] -->|Call IOCTL| L
+        Q -->|Futex Wait Multiple| N
+        Q -->|Run Real-Time Threads| R[SCHED_DEADLINE\nThreads]
+        Q -->|Read FIFO/Temp| S[Device\n/dev/max30102]
+        Q -->|Access Shared Memory| T[Shared Memory\n/dev/shm/max30102_shm]
+        Q -->|Access Message Queue| U[Message Queue\n/max30102_mq]
+        Q -->|Access FIFO| V[FIFO\n/tmp/max30102_fifo]
+        W[Benchmark Script\nmax30102_benchmark.sh] -->|Run Perf/Taskset| Q
+        W -->|Analyze eBPF Trace| P
+    end
+    
+    subgraph Device Tree
+        X[max30102.dts] -->|Apply Overlay| D
+    end
+
+    classDef kernel fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef user fill:#bbf,stroke:#333,stroke-width:2px;
+    classDef hardware fill:#bfb,stroke:#333,stroke-width:2px;
+    classDef device_tree fill:#ffb,stroke:#333,stroke-width:2px;
+
+    class A hardware;
+    class B,C,D,E,F,G,H,I,J,K,L,M,N,O,P kernel;
+    class Q,R,S,T,U,V,W user;
+    class X device_tree;
+```
