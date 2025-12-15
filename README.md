@@ -276,5 +276,68 @@ graph TD
 
 For detailed build and test instructions, refer to the project documentation or previous responses.
 
+# RT-MAX30102: Real-Time HealthSync Kernel V2.0(Update new)
+```mermaid
+graph TD
+    subgraph UserSpace["User Space"]
+        UserApp["max30102_user.c (Application: Signals, Threads, IPC, etc.)"]
+        AdvancedUser["max30102_user_advanced.c (Advanced Concurrency: Mutexes, RW Locks, Barriers)"]
+        ThreadPool["max30102_threadpool.c (Thread Pool & Lock-Free Queue)"]
+        Benchmark["max30102_benchmark.sh (Benchmark: Perf, Taskset, eBPF Monitoring)"]
+    end
+
+    subgraph KernelSpace["Kernel Space"]
+        Core["max30102_core.c (Probe/Remove, Input, Sysfs, Attr Group)"]
+        I2C["max30102_i2c.c (I2C Read/Write with NUMA, SMP Barriers)"]
+        Interrupt["max30102_interrupt.c (IRQ Handler, Workqueue, Tasklet)"]
+        Config["max30102_config.c (Init Sensor, Set Mode/Slot/Interrupt/FIFO/SpO2)"]
+        Data["max30102_data.c (FIFO Clear, Calculations, Input Reporting, Temp Read)"]
+        IOCTL["max30102_ioctl.c (Open/IOCTL: FIFO/Temp/Mode/Slot/FIFO/SpO2/Netlink)"]
+        AdvancedKernel["max30102_advanced_kernel.c (Kthread, Hrtimer, Tasklet, SoftIRQ)"]
+        MMAP["max30102_mmap.c (Mmap for Zero-Copy FIFO, Userfaultfd)"]
+        eBPF["max30102_ebpf.c (eBPF Tracing: Locks, I2C, Livelock Detection)"]
+        Header["max30102.h (Defines, Structs, Externs)"]
+    end
+
+    subgraph BuildTools["Build & Config"]
+        Makefile["Makefile (Build Module, Install)"]
+        DTS["max30102.dts (Device Tree: I2C, GPIO, Regulator, Pinctrl, Clocks)"]
+    end
+
+    subgraph Hardware["Hardware"]
+        Sensor["MAX30102 Sensor (I2C Device)"]
+    end
+
+    UserApp -->|IOCTL/MMAP/Futex/Syscalls| IOCTL
+    UserApp -->|Signals/Threads/IPC| AdvancedUser
+    AdvancedUser -->|Concurrency| ThreadPool
+    Benchmark -->|Perf/eBPF| eBPF
+    Benchmark -->|Taskset| KernelSpace
+
+    Core -->|Calls| I2C
+    Core -->|Calls| Interrupt
+    Core -->|Calls| Config
+    Core -->|Calls| Data
+    Core -->|Calls| IOCTL
+    Core -->|Calls| AdvancedKernel
+    Core -->|Calls| MMAP
+    Core -->|Includes| Header
+
+    I2C -->|I2C Transfer| Sensor
+    Interrupt -->|IRQ/Work/Tasklet| Sensor
+    Config -->|Reg Write| I2C
+    Data -->|FIFO/Temp| I2C
+    IOCTL -->|Commands| Config
+    IOCTL -->|Commands| Data
+    AdvancedKernel -->|Kthread/Hrtimer| Core
+    MMAP -->|Remap| Data
+    eBPF -->|Kprobes| Interrupt
+    eBPF -->|Kprobes| I2C
+
+    Makefile -->|Builds| KernelSpace
+    DTS -->|Overlay| KernelSpace
+    DTS -->|Config| Sensor
+```
+
 ## License
 This project is licensed under the GPL-2.0 License. See the `MODULE_LICENSE("GPL")` in `max30102_core.c`.
