@@ -1,0 +1,73 @@
+// max30102.dts: Device tree source for MAX30102.
+// Supplemented with full overlay and fragments.
+// No changes to original code, only added comments.
+
+ /dts-v1/;  // DTS version.
+/plugin/;  // Plugin mode.
+
+ / {  // Root node.
+    compatible = "brcm,bcm2711";  // Compatible string.
+
+    fragment@0 {  // Fragment 0.
+        target = <&i2c1>;  // Target I2C1.
+        __overlay__ {  // Overlay.
+            status = "okay";  // Enable.
+
+            max30102: max30102@57 {  // Node for sensor.
+                compatible = "maxim,max30102";  // Compatible.
+                reg = <0x57>;  // Address.
+                int-gpios = <&gpio 17 0>;  // Interrupt GPIO.
+                reset-gpios = <&gpio 18 0>;  // Reset GPIO.
+                led1-current-mA = <6>;  // LED1 current.
+                led2-current-mA = <6>;  // LED2 current.
+                interrupt-parent = <&gpio>;  // Interrupt parent.
+                interrupts = <17 IRQ_TYPE_EDGE_FALLING>;  // Interrupt spec.
+                vcc-supply = <&regulator_vcc>;  // Supply.
+                #io-channel-cells = <0>;  // No cells.
+                pinctrl-names = "default", "sleep";  // Pinctrl names.
+                pinctrl-0 = <&max30102_pins_active>;  // Active.
+                pinctrl-1 = <&max30102_pins_sleep>;  // Sleep.
+                clocks = <&clk_sensor>;  // Clocks.
+                clock-names = "sensor_clk";  // Clock name.
+                power-domains = <&pd_sensor>;  // Power domain.
+                dma-channels = <&dma0>;  // DMA.
+            };
+        };
+    };
+
+    fragment@1 {  // Fragment 1.
+        target-path = "/";  // Target root.
+        __overlay__ {  // Overlay.
+            regulator_vcc: regulator-vcc {  // Regulator node.
+                compatible = "regulator-fixed";  // Fixed regulator.
+                regulator-name = "vcc";  // Name.
+                regulator-min-microvolt = <3300000>;  // Min voltage.
+                regulator-max-microvolt = <3300000>;  // Max voltage.
+                regulator-always-on;  // Always on.
+            };
+
+            &pinctrl {  // Pinctrl reference.
+                max30102_pins_active: max30102_active {  // Active pins.
+                    pins = "gpio17", "gpio18";  // Pins.
+                    function = "gpio_in", "gpio_out";  // Functions.
+                };
+                max30102_pins_sleep: max30102_sleep {  // Sleep pins.
+                    pins = "gpio17", "gpio18";  // Pins.
+                    function = "gpio_in", "gpio_out";  // Functions.
+                    bias-pull-up;  // Bias.
+                };
+            };
+
+            clk_sensor: clk-sensor {  // Clock node.
+                compatible = "fixed-clock";  // Fixed clock.
+                #clock-cells = <0>;  // Cells.
+                clock-frequency = <24000000>;  // Frequency.
+            };
+
+            pd_sensor: pd-sensor {  // Power domain.
+                compatible = "simple-powerdomain";  // Simple PD.
+                #power-domain-cells = <0>;  // Cells.
+            };
+        };
+    };
+};
